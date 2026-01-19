@@ -1,5 +1,5 @@
 const CONFIG = {
-    firstFatherFriday: new Date('2026-01-23T12:00:00'),
+    firstFatherFriday: new Date('2026-01-23T12:00:00'), // Friday before Jan 24th weekend
     year: 2026
 };
 
@@ -16,22 +16,23 @@ const EVENTS = {
     MANUAL: 'Manual (Admin)'
 };
 
-// HOLIDAYS 2026 
+// HOLIDAYS 2026 (Balanced by Days Off)
 const HOLIDAYS = [
-    { name: 'Carnaval (4 dias)', date: '2026-02-17', owner: OWNER.FATHER },
-    { name: 'Páscoa (3 dias)', date: '2026-04-05', owner: OWNER.FATHER },
+    { name: 'Carnaval (5 dias)', date: '2026-02-17', owner: OWNER.FATHER },
+    { name: 'Sexta-feira Santa', date: '2026-04-03', owner: OWNER.MOTHER },
     { name: 'Tiradentes (4 dias)', date: '2026-04-21', owner: OWNER.MOTHER },
     { name: 'Dia do Trabalho (3 dias)', date: '2026-05-01', owner: OWNER.FATHER },
     { name: 'Corpus Christi (4 dias)', date: '2026-06-04', owner: OWNER.MOTHER },
     { name: 'Independência (3 dias)', date: '2026-09-07', owner: OWNER.FATHER },
-    { name: 'N. Sra. Aparecida (3 dias)', date: '2026-10-12', owner: OWNER.FATHER },
-    { name: 'Finados (3 dias)', date: '2026-11-02', owner: OWNER.FATHER },
-    { name: 'Proclamação (2 dias)', date: '2026-11-15', owner: OWNER.FATHER }
+    { name: 'N. Sra. Aparecida (3 dias)', date: '2026-10-12', owner: OWNER.MOTHER },
+    { name: 'Finados (3 dias)', date: '2026-11-02', owner: OWNER.FATHER }
 ];
 
 const FIXED_SPECIALS = [
-    { name: 'Aniversário da Mãe', day: 18, month: 6, owner: OWNER.MOTHER }, // July
-    { name: 'Aniversário do Pai', day: 7, month: 7, owner: OWNER.FATHER }, // Aug
+    // Hidden Birthdays (labeled as normal weekends)
+    { name: 'Fim de Semana', day: 18, month: 6, owner: OWNER.MOTHER }, // July 18
+    { name: 'Fim de Semana', day: 7, month: 7, owner: OWNER.FATHER },  // Aug 07
+    { name: 'Fim de Semana', day: 27, month: 10, owner: OWNER.MOTHER } // Nov 27 (Month 10 is Nov because 0-indexed)
 ];
 
 class CalendarApp {
@@ -226,9 +227,6 @@ class CalendarApp {
         // Fixed Blocks
         this.fillRange('2026-12-21', '2026-12-27', OWNER.MOTHER, 'Natal (Semana)', 4);
         this.fillRange('2026-12-28', '2027-01-03', OWNER.FATHER, 'Ano Novo (Semana)', 4);
-
-        // Wife's Hidden Birthday Override
-        this.setDay('2026-11-27', OWNER.MOTHER, EVENTS.SPECIAL, 'Fim de Semana', 4);
 
         // Fixed Specials
         FIXED_SPECIALS.forEach(s => {
