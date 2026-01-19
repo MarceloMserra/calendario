@@ -396,22 +396,30 @@ class CalendarApp {
     renderUpcomingEvents() {
         const list = document.getElementById('events-list');
         list.innerHTML = '';
-        const todayStr = this.formatDate(new Date());
 
-        const futureDates = Array.from(this.schedule.entries())
-            .filter(([d, i]) => d >= todayStr && (i.priority > 2 || i.priority === 10))
-            .sort((a, b) => a[0].localeCompare(b[0]));
+        // Combine HOLIDAYS and fixed blocks (Xmas/New Year) for the list
+        // We do NOT include the "Specials" (hidden birthdays) here
+        const displayEvents = [
+            ...HOLIDAYS,
+            { name: 'Natal (Semana)', date: '2026-12-25', owner: OWNER.MOTHER }, // Reference date
+            { name: 'Ano Novo (Semana)', date: '2027-01-01', owner: OWNER.FATHER }
+        ];
 
-        let lastEventName = '';
-        let count = 0;
+        // Sort by date
+        displayEvents.sort((a, b) => a.date.localeCompare(b.date));
 
-        for (const [d, info] of futureDates) {
-            if (count > 6) break;
-            if (info.name === lastEventName && info.priority !== 10) continue;
-
+        displayEvents.forEach(info => {
             const li = document.createElement('li');
             li.className = 'event-item';
-            const [y, m, day] = d.split('-');
+
+            // Format date for display (DD/MM)
+            const [y, m, day] = info.date.split('-');
+
+            // Check if passed (optional style)
+            const today = new Date().toISOString().split('T')[0];
+            if (info.date < today) {
+                li.style.opacity = '0.5';
+            }
 
             li.innerHTML = `
                 <span class="event-date">${day}/${m}</span>
@@ -419,9 +427,7 @@ class CalendarApp {
                 <span class="event-owner ${info.owner}">${info.owner === 'father' ? 'Pai' : 'Mãe'}</span>
             `;
             list.appendChild(li);
-            lastEventName = info.name;
-            count++;
-        }
+        });
     }
 
     updateDashboard() {
