@@ -1,0 +1,237 @@
+:root {
+    --bg-color: #0f172a;
+    --card-bg: #1e293b;
+    --text-primary: #f8fafc;
+    --text-secondary: #94a3b8;
+    --father: #3b82f6;
+    --father-bg: rgba(59, 130, 246, 0.2);
+    --father-border: rgba(59, 130, 246, 0.5);
+    --mother: #ec4899;
+    --mother-bg: rgba(236, 72, 153, 0.2);
+    --mother-border: rgba(236, 72, 153, 0.5);
+    --font-family: 'Outfit', sans-serif;
+}
+
+body {
+    font-family: var(--font-family);
+    background: var(--bg-color);
+    color: var(--text-primary);
+    margin: 0;
+    padding: 20px;
+}
+
+.app-container {
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+/* Header */
+.app-header {
+    text-align: center;
+    margin-bottom: 24px;
+}
+
+.legend {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    margin-top: 10px;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.9rem;
+}
+
+.dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+}
+
+.dot.father {
+    background: var(--father);
+}
+
+.dot.mother {
+    background: var(--mother);
+}
+
+/* Cards */
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 24px;
+}
+
+.card {
+    background: var(--card-bg);
+    padding: 16px;
+    border-radius: 16px;
+    text-align: center;
+}
+
+.card h3 {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+}
+
+.status-text {
+    font-size: 1.2rem;
+    font-weight: 700;
+}
+
+.status-text.father {
+    color: var(--father);
+}
+
+.status-text.mother {
+    color: var(--mother);
+}
+
+/* Calendar */
+.calendar-wrapper {
+    background: var(--card-bg);
+    border-radius: 20px;
+    padding: 16px;
+    margin-bottom: 24px;
+}
+
+.calendar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+}
+
+.calendar-header h2 {
+    margin: 0;
+    font-size: 1.2rem;
+}
+
+.nav-btn {
+    background: rgba(255, 255, 255, 0.1);
+    border: none;
+    color: white;
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 1.2rem;
+}
+
+.calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 6px;
+}
+
+.weekday-header {
+    text-align: center;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    padding: 8px 0;
+}
+
+.day {
+    aspect-ratio: 1;
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    font-weight: 600;
+    position: relative;
+    border: 1px solid transparent;
+}
+
+.day.father {
+    background: var(--father-bg);
+    color: #60a5fa;
+    border-color: var(--father-border);
+}
+
+.day.mother {
+    background: var(--mother-bg);
+    color: #f472b6;
+    border-color: var(--mother-border);
+}
+
+.day.today {
+    border: 2px solid white;
+    filter: brightness(1.2);
+}
+
+.icon-marker {
+    font-size: 0.7rem;
+    margin-top: 2px;
+}
+
+.tooltip {
+    display: none;
+    position: absolute;
+    bottom: 100%;
+    background: #000;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    white-space: nowrap;
+    z-index: 10;
+}
+
+.day:hover .tooltip {
+    display: block;
+}
+
+/* List */
+.start-list h3 {
+    margin-bottom: 12px;
+    font-size: 1rem;
+}
+
+.event-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.event-owner.father {
+    color: var(--father);
+}
+
+.event-owner.mother {
+    color: var(--mother);
+}
+
+/* Admin Mode */
+.admin-mode .day:not(.empty) {
+    cursor: pointer;
+    border: 2px dashed rgba(255, 255, 255, 0.2);
+}
+
+.admin-mode .day:not(.empty):hover {
+    filter: brightness(1.2);
+    transform: scale(1.05);
+}
+
+.admin-active {
+    background: rgba(255, 50, 50, 0.2) !important;
+    border: 1px solid rgba(255, 50, 50, 0.5) !important;
+    color: #ffcccc !important;
+}
+
+.holiday-line {
+    width: 20px;
+    height: 3px;
+    background-color: #fbbf24;
+    /* Amber/Gold */
+    border-radius: 2px;
+    margin-top: 2px;
+}

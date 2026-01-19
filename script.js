@@ -1,0 +1,462 @@
+const CONFIG = {
+    firstFatherFriday: new Date('2026-01-23T12:00:00'),
+    year: 2026
+};
+
+const OWNER = {
+    FATHER: 'father',
+    MOTHER: 'mother'
+};
+
+const EVENTS = {
+    HOLIDAY: 'Feriado (Emenda)',
+    WEEKEND: 'Fim de Semana',
+    SPECIAL: 'Data Especial',
+    VACATION: 'Férias',
+    MANUAL: 'Manual (Admin)'
+};
+
+// HOLIDAYS 2026 
+const HOLIDAYS = [
+    { name: 'Carnaval (4 dias)', date: '2026-02-17', owner: OWNER.FATHER },
+    { name: 'Páscoa (3 dias)', date: '2026-04-05', owner: OWNER.FATHER },
+    { name: 'Tiradentes (4 dias)', date: '2026-04-21', owner: OWNER.MOTHER },
+    { name: 'Dia do Trabalho (3 dias)', date: '2026-05-01', owner: OWNER.FATHER },
+    { name: 'Corpus Christi (4 dias)', date: '2026-06-04', owner: OWNER.MOTHER },
+    { name: 'Independência (3 dias)', date: '2026-09-07', owner: OWNER.FATHER },
+    { name: 'N. Sra. Aparecida (3 dias)', date: '2026-10-12', owner: OWNER.FATHER },
+    { name: 'Finados (3 dias)', date: '2026-11-02', owner: OWNER.FATHER },
+    { name: 'Proclamação (2 dias)', date: '2026-11-15', owner: OWNER.FATHER }
+];
+
+const FIXED_SPECIALS = [
+    { name: 'Aniversário da Mãe', day: 18, month: 6, owner: OWNER.MOTHER }, // July
+    { name: 'Aniversário do Pai', day: 7, month: 7, owner: OWNER.FATHER }, // Aug
+];
+
+class CalendarApp {
+    constructor() {
+        this.currentDate = new Date(2026, 0, 15);
+        this.schedule = new Map();
+        this.stats = { father: 0, mother: 0 };
+
+        // Admin Mode State
+        this.adminMode = false;
+        this.manualOverrides = JSON.parse(localStorage.getItem('visitation_overrides')) || {};
+
+        this.init();
+    }
+
+    init() {
+        this.generateSchedule();
+        this.setupEventListeners();
+        this.renderCalendar();
+        this.renderUpcomingEvents();
+        this.updateDashboard();
+    }
+
+    setDay(dateStr, owner, type, name, priority) {
+        if (this.schedule.has(dateStr)) {
+            const current = this.schedule.get(dateStr);
+            if (current.priority > priority) return;
+        }
+        this.schedule.set(dateStr, { owner, type, name, priority });
+    }
+
+    generateSchedule() {
+        this.schedule.clear(); // Reset schedule for fresh generation
+        const startYear = new Date(2026, 0, 1);
+        const endYear = new Date(2027, 0, 10);
+
+        // 1. PLACE PRIORITY EVENTS (Holidays/Specials)
+        this.placePriorityEvents();
+
+        // 2. COLLECT FRIDAYS
+        let cursor = new Date(startYear);
+        while (cursor.getDay() !== 5) cursor.setDate(cursor.getDate() + 1);
+
+        const fridays = [];
+        while (cursor < endYear) {
+            fridays.push(new Date(cursor));
+            cursor.setDate(cursor.getDate() + 7);
+        }
+
+        // 3. BUILD STATE
+        const weekendState = [];
+
+        fridays.forEach(dFri => {
+            const sFri = this.formatDate(dFri);
+            // Check Priority overrides
+            const dSat = new Date(dFri); dSat.setDate(dSat.getDate() + 1);
+            const dSun = new Date(dFri); dSun.setDate(dFri.getDate() + 2);
+
+            const pFri = this.schedule.get(sFri);
+            const pSat = this.schedule.get(this.formatDate(dSat));
+            const pSun = this.schedule.get(this.formatDate(dSun));
+
+            let forced = null;
+            if (pFri && pFri.priority > 1) forced = pFri.owner;
+            else if (pSat && pSat.priority > 1) forced = pSat.owner;
+            else if (pSun && pSun.priority > 1) forced = pSun.owner;
+
+            weekendState.push({
+                date: dFri,
+                forced: forced,
+                finalOwner: null
+            });
+        });
+
+        // 4. RESOLVE SEQUENCE (Jan 23 ref)
+        const refIndex = weekendState.findIndex(w => this.formatDate(w.date) === '2026-01-23');
+
+        if (refIndex !== -1) {
+            weekendState[refIndex].finalOwner = OWNER.FATHER;
+
+            // Forward
+            for (let i = refIndex + 1; i < weekendState.length; i++) {
+                const prev = weekendState[i - 1].finalOwner;
+                const currForced = weekendState[i].forced;
+                if (currForced) weekendState[i].finalOwner = currForced;
+                else weekendState[i].finalOwner = (prev === OWNER.FATHER) ? OWNER.MOTHER : OWNER.FATHER;
+            }
+
+            // Backward
+            for (let i = refIndex - 1; i >= 0; i--) {
+                const next = weekendState[i + 1].finalOwner;
+                const currForced = weekendState[i].forced;
+                if (currForced) weekendState[i].finalOwner = currForced;
+                else weekendState[i].finalOwner = (next === OWNER.FATHER) ? OWNER.MOTHER : OWNER.FATHER;
+            }
+        }
+
+        // 5. SMOOTHING (No Double Father)
+        for (let i = 0; i < weekendState.length - 1; i++) {
+            const curr = weekendState[i];
+            const next = weekendState[i + 1];
+
+            if (curr.finalOwner === OWNER.FATHER && next.finalOwner === OWNER.FATHER) {
+                if (!curr.forced) curr.finalOwner = OWNER.MOTHER;
+            }
+        }
+
+        // 6. COMMIT
+        weekendState.forEach(w => {
+            const dFri = w.date;
+            const dSat = new Date(dFri); dSat.setDate(dSat.getDate() + 1);
+            const dSun = new Date(dFri); dSun.setDate(dFri.getDate() + 2);
+
+            const owner = w.finalOwner;
+            this.ensureDay(this.formatDate(dFri), owner, EVENTS.WEEKEND, 'Fim de Semana', 1);
+            this.ensureDay(this.formatDate(dSat), owner, EVENTS.WEEKEND, 'Fim de Semana', 1);
+            this.ensureDay(this.formatDate(dSun), owner, EVENTS.WEEKEND, 'Fim de Semana', 1);
+        });
+
+        // 7. APPLY MANUAL OVERRIDES (Highest Priority)
+        Object.keys(this.manualOverrides).forEach(dateStr => {
+            const owner = this.manualOverrides[dateStr];
+
+            if (this.schedule.has(dateStr)) {
+                // If day exists (it almost always does), just override the OWNER, keep the NAME/TYPE
+                const current = this.schedule.get(dateStr);
+                current.owner = owner;
+                // We do NOT change the priority or name, so "Holiday" stays "Holiday"
+            } else {
+                // Edge case: Create if doesn't exist (unlikely)
+                this.setDay(dateStr, owner, EVENTS.MANUAL, 'Ajuste Manual', 10);
+            }
+        });
+
+        this.calculateStats();
+    }
+
+    fillRange(startStr, endStr, owner, name, priority) {
+        let curr = new Date(startStr + 'T12:00:00');
+        let end = new Date(endStr + 'T12:00:00');
+        while (curr <= end) {
+            this.setDay(this.formatDate(curr), owner, EVENTS.SPECIAL, name, priority);
+            curr.setDate(curr.getDate() + 1);
+        }
+    }
+
+    fillRangeDateObj(start, end, owner, name, priority) {
+        let curr = new Date(start);
+        while (curr <= end) {
+            this.setDay(this.formatDate(curr), owner, EVENTS.SPECIAL, name, priority);
+            curr.setDate(curr.getDate() + 1);
+        }
+    }
+
+    ensureDay(dateStr, owner, type, name, priority) {
+        if (!this.schedule.has(dateStr)) {
+            this.setDay(dateStr, owner, type, name, priority);
+        } else {
+            const curr = this.schedule.get(dateStr);
+            if (curr.priority < priority) {
+                this.setDay(dateStr, owner, type, name, priority);
+            }
+        }
+    }
+
+    placePriorityEvents() {
+        // Holidays
+        HOLIDAYS.forEach(h => {
+            const d = new Date(h.date + 'T12:00:00');
+            const dayOfWeek = d.getDay();
+
+            let startDate = new Date(d);
+            let endDate = new Date(d);
+
+            // Emenda Logic
+            if (dayOfWeek === 1) startDate.setDate(d.getDate() - 2);
+            if (dayOfWeek === 2) startDate.setDate(d.getDate() - 3);
+            if (dayOfWeek === 4) endDate.setDate(d.getDate() + 3);
+            if (dayOfWeek === 5) endDate.setDate(d.getDate() + 2);
+            if (dayOfWeek === 0) startDate.setDate(d.getDate() - 2);
+
+            // Atomic
+            if (startDate.getDay() === 6) startDate.setDate(startDate.getDate() - 1);
+            if (startDate.getDay() === 0) startDate.setDate(startDate.getDate() - 2);
+
+            if (endDate.getDay() === 6) endDate.setDate(endDate.getDate() + 1);
+            if (endDate.getDay() === 5) endDate.setDate(endDate.getDate() + 2);
+
+            this.fillRangeDateObj(startDate, endDate, h.owner, h.name, 3);
+        });
+
+        // Fixed Blocks
+        this.fillRange('2026-12-21', '2026-12-27', OWNER.MOTHER, 'Natal (Semana)', 4);
+        this.fillRange('2026-12-28', '2027-01-03', OWNER.FATHER, 'Ano Novo (Semana)', 4);
+
+        // Wife's Hidden Birthday Override
+        this.setDay('2026-11-27', OWNER.MOTHER, EVENTS.SPECIAL, 'Fim de Semana', 4);
+
+        // Fixed Specials
+        FIXED_SPECIALS.forEach(s => {
+            const d = new Date(CONFIG.year, s.month, s.day);
+            this.setDay(this.formatDate(d), s.owner, EVENTS.SPECIAL, s.name, 4);
+        });
+
+        this.setDay('2026-05-10', OWNER.MOTHER, EVENTS.SPECIAL, 'Dia das Mães', 4);
+        this.setDay('2026-08-09', OWNER.FATHER, EVENTS.SPECIAL, 'Dia dos Pais', 4);
+    }
+
+    calculateStats() {
+        this.stats = { father: 0, mother: 0 };
+        for (const [dateStr, info] of this.schedule) {
+            // Only count 2026
+            if (dateStr.startsWith('2026')) {
+                if (info.owner === OWNER.FATHER) this.stats.father++;
+                if (info.owner === OWNER.MOTHER) this.stats.mother++;
+            }
+        }
+    }
+
+    formatDate(date) {
+        const y = date.getFullYear();
+        const m = String(date.getMonth() + 1).padStart(2, '0');
+        const d = String(date.getDate()).padStart(2, '0');
+        return `${y}-${m}-${d}`;
+    }
+
+    setupEventListeners() {
+        document.getElementById('prev-month').addEventListener('click', () => {
+            this.currentDate.setMonth(this.currentDate.getMonth() - 1);
+            this.renderCalendar();
+        });
+        document.getElementById('next-month').addEventListener('click', () => {
+            this.currentDate.setMonth(this.currentDate.getMonth() + 1);
+            this.renderCalendar();
+        });
+
+        // Admin Toggle
+        const toggleBtn = document.getElementById('admin-toggle');
+        if (toggleBtn) {
+            toggleBtn.addEventListener('click', () => {
+                this.adminMode = !this.adminMode;
+                if (this.adminMode) {
+                    toggleBtn.classList.add('admin-active');
+                    toggleBtn.textContent = '🔓 Edição Ativada (Clique nos dias)';
+                    document.body.classList.add('admin-mode');
+                } else {
+                    toggleBtn.classList.remove('admin-active');
+                    toggleBtn.textContent = '🔒 Habilitar Edição Manual';
+                    document.body.classList.remove('admin-mode');
+                }
+                this.renderCalendar();
+            });
+        }
+    }
+
+    toggleDayOwner(dateStr) {
+        // Current state for THIS day in the schedule (visual)
+        const currentInfo = this.schedule.get(dateStr);
+        const currentOwner = currentInfo ? currentInfo.owner : OWNER.MOTHER;
+
+        // Determine next state based on overrides
+        // Cycle Strategy: 
+        // 1. If currently NO override -> Start with Father
+        // 2. If currently Father Override -> Switch to Mother
+        // 3. If currently Mother Override -> Switch to Cleared (No Override)
+
+        const currentOverride = this.manualOverrides[dateStr];
+        let newOverride = null;
+
+        if (!currentOverride) {
+            // Start cycle: Force FATHER
+            newOverride = OWNER.FATHER;
+        } else if (currentOverride === OWNER.FATHER) {
+            // Next step: Force MOTHER
+            newOverride = OWNER.MOTHER;
+        } else if (currentOverride === OWNER.MOTHER) {
+            // Next step: CLEAR (null)
+            newOverride = null;
+        }
+
+        if (newOverride) {
+            this.manualOverrides[dateStr] = newOverride;
+        } else {
+            delete this.manualOverrides[dateStr];
+        }
+
+        localStorage.setItem('visitation_overrides', JSON.stringify(this.manualOverrides));
+
+        // Re-generate and Render
+        this.generateSchedule();
+        this.renderCalendar();
+        this.renderUpcomingEvents();
+        this.updateDashboard();
+    }
+
+    renderCalendar() {
+        const grid = document.getElementById('calendar-grid');
+        grid.innerHTML = '';
+
+        const weekdays = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+        weekdays.forEach(d => {
+            const el = document.createElement('div');
+            el.className = 'weekday-header';
+            el.textContent = d;
+            grid.appendChild(el);
+        });
+
+        const year = this.currentDate.getFullYear();
+        const month = this.currentDate.getMonth();
+        const monthNames = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+        document.getElementById('current-month-label').textContent = `${monthNames[month]} ${year}`;
+
+        const firstDay = new Date(year, month, 1);
+        const lastDay = new Date(year, month + 1, 0);
+
+        for (let i = 0; i < firstDay.getDay(); i++) {
+            const empty = document.createElement('div');
+            empty.className = 'day empty';
+            grid.appendChild(empty);
+        }
+
+        for (let i = 1; i <= lastDay.getDate(); i++) {
+            const dateStr = this.formatDate(new Date(year, month, i));
+            const el = document.createElement('div');
+            el.className = 'day';
+            el.textContent = i;
+
+            const todayStr = this.formatDate(new Date());
+            if (dateStr === todayStr) el.classList.add('today');
+
+            if (this.schedule.has(dateStr)) {
+                const info = this.schedule.get(dateStr);
+                el.classList.add(info.owner);
+
+                // No visual cues for overrides (per user request)
+                // Overrides blend in perfectly as Father/Mother days
+
+                const tooltip = document.createElement('div');
+                tooltip.className = 'tooltip';
+                tooltip.textContent = info.name;
+                el.appendChild(tooltip);
+
+                // Content marker (Star) only for real holidays, not manual overrides
+                if (info.priority >= 3 && info.priority !== 10) {
+                    const icon = document.createElement('div');
+                    icon.className = 'icon-marker';
+                    icon.textContent = '★';
+                    el.appendChild(icon);
+                }
+            }
+
+            // Interaction
+            if (this.adminMode) {
+                el.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this.toggleDayOwner(dateStr);
+                });
+            }
+
+            grid.appendChild(el);
+        }
+    }
+
+    renderUpcomingEvents() {
+        const list = document.getElementById('events-list');
+        list.innerHTML = '';
+        const todayStr = this.formatDate(new Date());
+
+        const futureDates = Array.from(this.schedule.entries())
+            .filter(([d, i]) => d >= todayStr && (i.priority > 2 || i.priority === 10))
+            .sort((a, b) => a[0].localeCompare(b[0]));
+
+        let lastEventName = '';
+        let count = 0;
+
+        for (const [d, info] of futureDates) {
+            if (count > 6) break;
+            if (info.name === lastEventName && info.priority !== 10) continue;
+
+            const li = document.createElement('li');
+            li.className = 'event-item';
+            const [y, m, day] = d.split('-');
+
+            li.innerHTML = `
+                <span class="event-date">${day}/${m}</span>
+                <span class="event-name">${info.name}</span>
+                <span class="event-owner ${info.owner}">${info.owner === 'father' ? 'Pai' : 'Mãe'}</span>
+            `;
+            list.appendChild(li);
+            lastEventName = info.name;
+            count++;
+        }
+    }
+
+    updateDashboard() {
+        const todayStr = this.formatDate(new Date());
+        const info = this.schedule.get(todayStr);
+        const statusEl = document.getElementById('today-status');
+
+        if (info) {
+            statusEl.textContent = `${info.owner === 'father' ? 'Com Você' : 'Com a Mãe'}`;
+            statusEl.className = `status-text ${info.owner}`;
+        } else {
+            statusEl.textContent = 'Com a Mãe';
+            statusEl.className = 'status-text mother';
+        }
+
+        // Next Father Weekend
+        const future = Array.from(this.schedule.entries())
+            .filter(([d, i]) => d >= todayStr && i.owner === 'father' && (i.priority >= 1 || i.priority === 10))
+            .sort((a, b) => a[0].localeCompare(b[0]));
+
+        if (future.length > 0) {
+            const nextVisitStr = future[0][0];
+            const today = new Date();
+            const nextD = new Date(nextVisitStr + 'T12:00:00');
+            const diffDays = Math.ceil((nextD - today) / (1000 * 60 * 60 * 24));
+            const [y, m, d] = nextVisitStr.split('-');
+
+            document.getElementById('next-visit-date').textContent = `${d}/${m}`;
+            document.getElementById('next-visit-countdown').textContent = diffDays <= 0 ? 'Hoje' : `Faltam ${diffDays} dias`;
+        }
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    new CalendarApp();
+});

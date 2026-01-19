@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Minha Custódia</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div class="app-container">
+        <header class="app-header">
+            <h1>Calendário de Visitas</h1>
+            <div class="legend">
+                <div class="legend-item"><span class="dot father"></span> Com Você</div>
+                <div class="legend-item"><span class="dot mother"></span> Com a Mãe</div>
+            </div>
+        </header>
+
+        <div class="dashboard-grid">
+            <div class="card">
+                <h3>Próxima Visita (Pai)</h3>
+                <div id="next-visit-date" class="status-text father">--/--</div>
+                <div id="next-visit-countdown" style="font-size: 0.8rem; color: #94a3b8;">--</div>
+            </div>
+            <div class="card">
+                <h3>Hoje</h3>
+                <div id="today-status" class="status-text">...</div>
+            </div>
+        </div>
+
+        <div class="calendar-wrapper">
+            <div class="calendar-header">
+                <button id="prev-month" class="nav-btn">&lt;</button>
+                <h2 id="current-month-label">Janeiro 2026</h2>
+                <button id="next-month" class="nav-btn">&gt;</button>
+            </div>
+            <div class="calendar-grid" id="calendar-grid">
+                <!-- Grid -->
+            </div>
+        </div>
+
+        <div class="start-list">
+            <h3>Datas Importantes</h3>
+            <ul id="events-list"></ul>
+        </div>
+
+        <div class="admin-controls" style="margin-top: 2rem; text-align: center; opacity: 0.7;">
+            <button id="admin-toggle" class="nav-btn" style="font-size: 0.9rem; padding: 0.5rem 1rem;">
+                🔒 Habilitar Edição Manual
+            </button>
+        </div>
+    </div>
+    <script src="script.js"></script>
+</body>
+
+</html>
