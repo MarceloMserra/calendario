@@ -51,12 +51,45 @@
             <ul id="events-list"></ul>
         </div>
 
-        <div class="admin-controls" style="margin-top: 2rem; text-align: center; opacity: 0.7;">
+        <div class="admin-controls" style="margin-top: 2rem; text-align: center; opacity: 0.7; display: none;">
             <button id="admin-toggle" class="nav-btn" style="font-size: 0.9rem; padding: 0.5rem 1rem;">
                 🔒 Habilitar Edição Manual
             </button>
         </div>
     </div>
+    </div>
+
+    <!-- Firebase SDKs -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        // Firebase Configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyD3ovbIrPvvJ4og3fu5fLk02DuGjULGAUQ",
+            authDomain: "devocionalbatista-fe24c.firebaseapp.com",
+            projectId: "devocionalbatista-fe24c",
+            storageBucket: "devocionalbatista-fe24c.firebasestorage.app",
+            messagingSenderId: "415752348536",
+            appId: "1:415752348536:web:071a995951bbb819f81e8d",
+            measurementId: "G-16VHY8EDVG"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        // Expose to Global Scope for script.js
+        window.db = db;
+        window.doc = doc;
+        window.getDoc = getDoc;
+        window.setDoc = setDoc;
+        window.onSnapshot = onSnapshot;
+
+        // Signal that Firebase is ready
+        window.dispatchEvent(new Event('firebase-ready'));
+    </script>
+
     <script src="script.js"></script>
 </body>
 

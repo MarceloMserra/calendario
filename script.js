@@ -42,18 +42,48 @@ class CalendarApp {
         this.stats = { father: 0, mother: 0 };
 
         // Admin Mode State
+        // Check for "admin" parameter in URL (e.g., ?admin=true)
+        const urlParams = new URLSearchParams(window.location.search);
+        this.isAdminAccess = urlParams.has('admin');
         this.adminMode = false;
-        this.manualOverrides = JSON.parse(localStorage.getItem('visitation_overrides')) || {};
 
-        this.init();
+        // Data Storage
+        this.overrides = {}; // Replaces manualOverrides & serverOverrides
+
+        // Wait for Firebase before Init
+        if (window.db) {
+            this.init();
+        } else {
+            window.addEventListener('firebase-ready', () => this.init());
+        }
+
     }
 
     init() {
-        this.generateSchedule();
         this.setupEventListeners();
-        this.renderCalendar();
-        this.renderUpcomingEvents();
-        this.updateDashboard();
+        this.initFirebaseSync(); // Start Realtime Listeners
+    }
+
+    initFirebaseSync() {
+        // Document Reference: collection "calendario", document "visitas"
+        const docRef = window.doc(window.db, "calendario", "visitas");
+
+        // Listen for realtime updates
+        window.onSnapshot(docRef, (docSnap) => {
+            if (docSnap.exists()) {
+                console.log("Dados recebidos do servidor:", docSnap.data());
+                this.overrides = docSnap.data();
+            } else {
+                console.log("Nenhum dado encontrado, criando...");
+                this.overrides = {};
+            }
+
+            // Regenerate everything whenever data changes
+            this.generateSchedule();
+            this.renderCalendar();
+            this.renderUpcomingEvents();
+            this.updateDashboard();
+        });
     }
 
     setDay(dateStr, owner, type, name, priority) {
@@ -152,17 +182,17 @@ class CalendarApp {
             this.ensureDay(this.formatDate(dSun), owner, EVENTS.WEEKEND, 'Fim de Semana', 1);
         });
 
-        // 7. APPLY MANUAL OVERRIDES (Highest Priority)
-        Object.keys(this.manualOverrides).forEach(dateStr => {
-            const owner = this.manualOverrides[dateStr];
+        // 7. APPLY FIREBASE OVERRIDES (Highest Priority)
+        // This replaces the old "Manual + Server" logic. Now everything comes from `this.overrides` (Firebase)
+        Object.keys(this.overrides).forEach(dateStr => {
+            const owner = this.overrides[dateStr];
 
             if (this.schedule.has(dateStr)) {
-                // If day exists (it almost always does), just override the OWNER, keep the NAME/TYPE
+                // If day exists, just override the OWNER
                 const current = this.schedule.get(dateStr);
                 current.owner = owner;
-                // We do NOT change the priority or name, so "Holiday" stays "Holiday"
             } else {
-                // Edge case: Create if doesn't exist (unlikely)
+                // Edge case: Create if doesn't exist
                 this.setDay(dateStr, owner, EVENTS.MANUAL, 'Ajuste Manual', 10);
             }
         });
@@ -268,7 +298,15 @@ class CalendarApp {
 
         // Admin Toggle
         const toggleBtn = document.getElementById('admin-toggle');
+
+        // Hide by default Logic
         if (toggleBtn) {
+            if (!this.isAdminAccess) {
+                toggleBtn.style.display = 'none';
+            } else {
+                toggleBtn.style.display = 'inline-block'; // or block
+            }
+
             toggleBtn.addEventListener('click', () => {
                 this.adminMode = !this.adminMode;
                 if (this.adminMode) {
@@ -285,44 +323,49 @@ class CalendarApp {
         }
     }
 
-    toggleDayOwner(dateStr) {
-        // Current state for THIS day in the schedule (visual)
-        const currentInfo = this.schedule.get(dateStr);
-        const currentOwner = currentInfo ? currentInfo.owner : OWNER.MOTHER;
+    async toggleDayOwner(dateStr) {
+        if (!this.overrides) this.overrides = {};
 
-        // Determine next state based on overrides
-        // Cycle Strategy: 
-        // 1. If currently NO override -> Start with Father
-        // 2. If currently Father Override -> Switch to Mother
-        // 3. If currently Mother Override -> Switch to Cleared (No Override)
-
-        const currentOverride = this.manualOverrides[dateStr];
+        // Current Override
+        const currentOverride = this.overrides[dateStr];
         let newOverride = null;
 
-        if (!currentOverride) {
-            // Start cycle: Force FATHER
-            newOverride = OWNER.FATHER;
-        } else if (currentOverride === OWNER.FATHER) {
-            // Next step: Force MOTHER
-            newOverride = OWNER.MOTHER;
-        } else if (currentOverride === OWNER.MOTHER) {
-            // Next step: CLEAR (null)
-            newOverride = null;
+        // Cycle Strategy
+        if (!currentOverride) { newOverride = OWNER.FATHER; }
+        else if (currentOverride === OWNER.FATHER) { newOverride = OWNER.MOTHER; }
+        else if (currentOverride === OWNER.MOTHER) { newOverride = null; } // Clear
+
+        try {
+            const docRef = window.doc(window.db, "calendario", "visitas");
+
+            // We read, modify, and write back the full object to ensure clean state
+            // In a more complex app, we'd use dot notation or transactions, but 
+            // since we are mapping the whole object in memory anyway, let's keep it simple.
+
+            // Construct the update payload
+            // Firestore "merge: true" allows us to just update specific keys (dates)
+            // But to "delete" a key, we need special syntax or just rewrite the object.
+
+            if (newOverride) {
+                // If adding/updating a date override
+                await window.setDoc(docRef, { [dateStr]: newOverride }, { merge: true });
+            } else {
+                // If REMOVING an override (setting to null in our logic)
+                // We must use the FieldValue.delete() equivalent, BUT simpler path here:
+                // Since this.overrides is the source of truth from the snapshot,
+                // let's grab the current full object, delete the key locally, and save the WHOLE thing.
+                // It's less efficient but foolproof for this scale.
+
+                const fullCopy = { ...this.overrides };
+                delete fullCopy[dateStr];
+                await window.setDoc(docRef, fullCopy); // No merge: true means REPLACE the doc.
+            }
+
+            console.log("Salvo no Firebase:", dateStr, newOverride);
+        } catch (e) {
+            console.error("Erro ao salvar no Firebase:", e);
+            alert("Erro ao salvar alteração. Verifique a internet.");
         }
-
-        if (newOverride) {
-            this.manualOverrides[dateStr] = newOverride;
-        } else {
-            delete this.manualOverrides[dateStr];
-        }
-
-        localStorage.setItem('visitation_overrides', JSON.stringify(this.manualOverrides));
-
-        // Re-generate and Render
-        this.generateSchedule();
-        this.renderCalendar();
-        this.renderUpcomingEvents();
-        this.updateDashboard();
     }
 
     renderCalendar() {
