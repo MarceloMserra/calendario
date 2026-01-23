@@ -321,6 +321,16 @@ class CalendarApp {
                 this.renderCalendar();
             });
         }
+
+        // Secret Admin Trigger
+        const secretTrigger = document.getElementById('secret-admin-trigger');
+        if (secretTrigger && toggleBtn) {
+            secretTrigger.addEventListener('click', () => {
+                this.isAdminAccess = true;
+                toggleBtn.style.display = 'inline-block';
+                // Optional: alert('Modo Admin Habilitado!');
+            });
+        }
     }
 
     async toggleDayOwner(dateStr) {
