@@ -297,38 +297,43 @@ class CalendarApp {
         });
 
         // Admin Toggle
+        // Admin Toggle
         const toggleBtn = document.getElementById('admin-toggle');
+        const toggleContainer = toggleBtn ? toggleBtn.parentElement : null;
 
         // Hide by default Logic
-        if (toggleBtn) {
+        if (toggleContainer) {
             if (!this.isAdminAccess) {
-                toggleBtn.style.display = 'none';
+                toggleContainer.style.display = 'none';
             } else {
-                toggleBtn.style.display = 'inline-block'; // or block
+                toggleContainer.style.display = 'block';
             }
 
-            toggleBtn.addEventListener('click', () => {
-                this.adminMode = !this.adminMode;
-                if (this.adminMode) {
-                    toggleBtn.classList.add('admin-active');
-                    toggleBtn.textContent = '🔓 Edição Ativada (Clique nos dias)';
-                    document.body.classList.add('admin-mode');
-                } else {
-                    toggleBtn.classList.remove('admin-active');
-                    toggleBtn.textContent = '🔒 Habilitar Edição Manual';
-                    document.body.classList.remove('admin-mode');
-                }
-                this.renderCalendar();
-            });
+            if (toggleBtn) {
+                toggleBtn.addEventListener('click', () => {
+                    this.adminMode = !this.adminMode;
+                    if (this.adminMode) {
+                        toggleBtn.classList.add('admin-active');
+                        toggleBtn.textContent = '🔓 Edição Ativada (Clique nos dias)';
+                        document.body.classList.add('admin-mode');
+                    } else {
+                        toggleBtn.classList.remove('admin-active');
+                        toggleBtn.textContent = '🔒 Habilitar Edição Manual';
+                        document.body.classList.remove('admin-mode');
+                    }
+                    this.renderCalendar();
+                });
+            }
         }
 
         // Secret Admin Trigger
         const secretTrigger = document.getElementById('secret-admin-trigger');
-        if (secretTrigger && toggleBtn) {
+        if (secretTrigger && toggleContainer) {
             secretTrigger.addEventListener('click', () => {
                 this.isAdminAccess = true;
-                toggleBtn.style.display = 'inline-block';
-                // Optional: alert('Modo Admin Habilitado!');
+                toggleContainer.style.display = 'block';
+                if (toggleBtn) toggleBtn.style.display = 'inline-block';
+                alert('Modo Admin Ativado! O botão apareceu acima.');
             });
         }
     }
